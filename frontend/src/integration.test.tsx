@@ -91,4 +91,38 @@ describe('upload and results', () => {
     await user.click(screen.getByRole('button', { name: 'Анализировать' }))
     expect(await screen.findByText('Требований пока нет. Их можно добавить вручную.')).toBeTruthy()
   })
+
+  it('searches transcript and moves between matches', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(mockResponse)))
+    const user = userEvent.setup()
+    render(<App />)
+    await user.upload(screen.getByLabelText('Выбрать запись'), file())
+    await user.click(screen.getByRole('button', { name: 'Анализировать' }))
+    await screen.findByText(mockResponse.analysis.summary)
+
+    await user.type(screen.getByRole('searchbox', { name: 'Поиск по транскрипции' }), 'система')
+    expect(screen.getByText('1 из 2')).toBeTruthy()
+    expect(document.querySelectorAll('mark')).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'Следующее совпадение' }))
+    expect(screen.getByText('2 из 2')).toBeTruthy()
+  })
+
+  it('adds a requirement at the top and scrolls to it', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(mockResponse)))
+    const user = userEvent.setup()
+    render(<App />)
+    await user.upload(screen.getByLabelText('Выбрать запись'), file())
+    await user.click(screen.getByRole('button', { name: 'Анализировать' }))
+    await screen.findByText(mockResponse.analysis.summary)
+
+    await user.click(screen.getByRole('button', { name: /Добавить требование/ }))
+    await user.type(screen.getByPlaceholderText('например: Авторизация'), 'Уведомления')
+    await user.type(screen.getByPlaceholderText('например: Сотрудник'), 'Менеджер')
+    await user.type(screen.getByPlaceholderText('Пользователь должен иметь возможность...'), 'Получать уведомления')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    const firstCard = document.querySelector('.result-view__requirements .result-view__requirement-anchor')
+    expect(firstCard?.textContent).toContain('Уведомления')
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
 })

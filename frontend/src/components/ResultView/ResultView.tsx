@@ -1,5 +1,5 @@
 // src/components/ResultView/ResultView.tsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './ResultView.css'
 import type { AnalyzeResponse, Requirement } from '../../types/contract'
 import TranscriptView from '../TranscriptView/TranscriptView'
@@ -21,6 +21,15 @@ export default function ResultView({ result }: ResultViewProps) {
   const [highlightedSegmentIds, setHighlightedSegmentIds] = useState<number[]>([])
   const [activeReqId, setActiveReqId] = useState<string | null>(null)
   const [requirements, setRequirements] = useState<Requirement[]>(analysis.requirements)
+  const [newRequirementId, setNewRequirementId] = useState<string | null>(null)
+  const newRequirementRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (newRequirementId) {
+      newRequirementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      newRequirementRef.current?.focus({ preventScroll: true })
+    }
+  }, [newRequirementId])
 
   function handleHighlight(reqId: string, segmentIds: number[]) {
     if (activeReqId === reqId) {
@@ -47,7 +56,8 @@ export default function ResultView({ result }: ResultViewProps) {
   }
 
   function handleAdd(newReq: Requirement) {
-    setRequirements(prev => [...prev, newReq])
+    setNewRequirementId(newReq.id)
+    setRequirements(prev => [newReq, ...prev])
   }
 
   return (
@@ -62,7 +72,7 @@ export default function ResultView({ result }: ResultViewProps) {
           className="result-view__export-btn"
           onClick={() => exportTz(result, requirements)}
         >
-          ⬇ Скачать ТЗ
+          ⬇ Скачать ТЗ (.md)
         </button>
       </div>
 
@@ -101,14 +111,16 @@ export default function ResultView({ result }: ResultViewProps) {
               <p className="result-view__empty">Требований пока нет. Их можно добавить вручную.</p>
             ) : (
               requirements.map(req => (
-                <RequirementCard
-                  key={req.id}
-                  requirement={req}
-                  isHighlighted={activeReqId === req.id}
-                  onHighlight={(ids) => handleHighlight(req.id, ids)}
-                  onUpdate={handleUpdate}
-                  onDelete={handleDelete}
-                />
+                <div key={req.id} ref={req.id === newRequirementId ? newRequirementRef : undefined}
+                  tabIndex={req.id === newRequirementId ? -1 : undefined} className="result-view__requirement-anchor">
+                  <RequirementCard
+                    requirement={req}
+                    isHighlighted={activeReqId === req.id}
+                    onHighlight={(ids) => handleHighlight(req.id, ids)}
+                    onUpdate={handleUpdate}
+                    onDelete={handleDelete}
+                  />
+                </div>
               ))
             )}
           </div>

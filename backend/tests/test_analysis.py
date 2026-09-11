@@ -88,6 +88,57 @@ def test_success_normalization(api):
     assert '[id=2' in post.call_args.kwargs['json']['messages'][1]['text']
 
 
+def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
+    monkeypatch.setattr(a, 'MAX_CHUNK_CHARS', 65)
+    transcript = {'text': 'Первая часть. Вторая часть.', 'segments': [
+        {'id': 0, 'start': 0, 'end': 1, 'text': 'Первая достаточно длинная часть записи'},
+        {'id': 1, 'start': 1, 'end': 2, 'text': 'Вторая достаточно длинная часть записи'},
+    ]}
+    responses = []
+    for number, segment_id in enumerate((0, 1), start=1):
+        response = Mock()
+        response.json.return_value = {'result': {'alternatives': [{'message': {'text': json.dumps({
+            'summary': f'Часть {number}',
+            'roles': ['Пользователь'],
+            'requirements': [{
+                'title': f'Требование {number}', 'description': f'Описание {number}',
+                'sourceSegmentIds': [segment_id]
+            }],
+        })}}]}}
+        responses.append(response)
+    api[1].side_effect = responses
+
+    result = a.analyze_transcription(transcript)
+
+    assert api[1].call_count == 2
+    assert result['summary'] == 'Часть 1 Часть 2'
+    assert [item['id'] for item in result['requirements']] == ['req_1', 'req_2']
+    assert [item['sourceSegmentIds'] for item in result['requirements']] == [[0], [1]]
+    assert result['roles'] == ['Пользователь']
+
+
+def test_transient_analysis_error_is_retried_once(api):
+    api[1].side_effect = [requests.Timeout(), api[0]]
+
+    result = a.analyze_transcription(TRANSCRIPT)
+
+    assert result['summary'] == 'Регистрация'
+    assert api[1].call_count == 2
+
+
+def test_excessive_number_of_chunks_is_rejected_before_api_call(api, monkeypatch):
+    monkeypatch.setattr(a, 'MAX_CHUNK_CHARS', 45)
+    monkeypatch.setattr(a, 'MAX_ANALYSIS_CHUNKS', 1)
+    transcript = {'text': 'Длинная встреча', 'segments': [
+        {'id': 0, 'start': 0, 'end': 1, 'text': 'Первая длинная часть'},
+        {'id': 1, 'start': 1, 'end': 2, 'text': 'Вторая длинная часть'},
+    ]}
+
+    with pytest.raises(a.AnalysisInputTooLong):
+        a.analyze_transcription(transcript)
+    api[1].assert_not_called()
+
+
 @pytest.mark.parametrize('key', ['YANDEX_API_KEY', 'YANDEX_FOLDER_ID'])
 def test_missing_credentials(api, monkeypatch, key):
     monkeypatch.delenv(key)

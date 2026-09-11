@@ -10,6 +10,13 @@ from groq import Groq
 load_dotenv(Path(__file__).with_name(".env"))
 
 
+class TranscriptionServiceError(RuntimeError):
+    def __init__(self, code: str, user_message: str):
+        super().__init__(f"Ошибка при обращении к Groq API: {code}")
+        self.code = code
+        self.user_message = user_message
+
+
 @lru_cache(maxsize=1)
 def get_groq_client():
     api_key = os.getenv("GROQ_API_KEY")
@@ -17,20 +24,42 @@ def get_groq_client():
     if not api_key:
         raise RuntimeError("GROQ_API_KEY не настроен")
 
-    return Groq(api_key=api_key, timeout=120.0, max_retries=0)
+    return Groq(api_key=api_key, timeout=120.0, max_retries=2)
 
 
 def transcribe_file(file_path: str):
     client = get_groq_client()
 
-    with open(file_path, "rb") as media_file:
-        transcription = client.audio.transcriptions.create(
-            file=media_file,
-            model="whisper-large-v3-turbo",
-            language="ru",
-            response_format="verbose_json",
-            timestamp_granularities=["segment"]
-        )
+    try:
+        with open(file_path, "rb") as media_file:
+            transcription = client.audio.transcriptions.create(
+                file=media_file,
+                model="whisper-large-v3-turbo",
+                language="ru",
+                response_format="verbose_json",
+                timestamp_granularities=["segment"]
+            )
+    except Exception as error:
+        status = getattr(error, "status_code", None)
+        if status is None:
+            status = getattr(getattr(error, "response", None), "status_code", None)
+        error_name = type(error).__name__.lower()
+        if status in {400, 415}:
+            code = "GROQ_MEDIA_INVALID"
+            message = "Сервис распознавания не смог прочитать запись. Проверьте формат и содержимое файла."
+        elif status == 413:
+            code = "GROQ_FILE_TOO_LARGE"
+            message = "Сервис распознавания отклонил размер записи. Сожмите файл или разделите его на части."
+        elif status == 429:
+            code = "GROQ_RATE_LIMIT"
+            message = "Сервис распознавания перегружен. Повторите попытку через минуту."
+        elif status in {408, 409, 500, 502, 503, 504} or "timeout" in error_name or "connection" in error_name:
+            code = "GROQ_TEMPORARY"
+            message = "Сервис распознавания временно недоступен. Повторите попытку позже."
+        else:
+            code = "GROQ_FAILED"
+            message = "Не удалось распознать запись. Проверьте файл и повторите попытку."
+        raise TranscriptionServiceError(code, message) from error
 
     segments = []
 

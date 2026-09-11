@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import Layout from './components/Layout/Layout'
 import FileUploader from './components/FileUploader/FileUploader'
@@ -16,6 +16,15 @@ function App() {
   const [status, setStatus] = useState<AppStatus>('idle')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [result, setResult] = useState<AnalyzeResponse | null>(null)
+  const uploadRef = useRef<HTMLDivElement>(null)
+  const analyzeRef = useRef<HTMLDivElement>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (status === 'success' && result) {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [status, result])
 
   async function handleAnalyze() {
     if (!file || status === 'loading') return
@@ -49,37 +58,43 @@ function App() {
 
   return (
     <Layout>
-      {/* приветствие только в idle до первого анализа */}
-      {status === 'idle' && !result && (
-        <WelcomeBanner />
-      )}
-
-      <FileUploader
-        onFileSelect={handleFileSelect}
-        disabled={status === 'loading'}
+      <WelcomeBanner
+        activeStep={result ? 3 : file ? 2 : 1}
+        loading={status === 'loading'}
+        resultAvailable={Boolean(result)}
+        onStepSelect={step => {
+          const target = step === 1 ? uploadRef : step === 2 ? analyzeRef : resultRef
+          target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }}
       />
 
-      {file && <MediaPlayer file={file} />}
+      <div ref={uploadRef} className="app__anchor">
+        <FileUploader
+          onFileSelect={handleFileSelect}
+          disabled={status === 'loading'}
+        />
+      </div>
 
-      <AnalyzeButton
-        onClick={handleAnalyze}
-        status={status}
-        disabled={!file}
-      />
+      <div ref={analyzeRef} className="app__anchor">
+        {file && <MediaPlayer file={file} />}
 
-      <StatusMessage
-        status={status}
-        errorText={errorText}
-      />
+        <AnalyzeButton
+          onClick={handleAnalyze}
+          status={status}
+          disabled={!file}
+        />
 
-      {result && <ResultView result={result} />}
+        <StatusMessage
+          status={status}
+          errorText={errorText}
+        />
+      </div>
+
+      <div ref={resultRef} className="app__anchor">
+        {result && <ResultView result={result} />}
+      </div>
     </Layout>
   )
 }
 
 export default App
-
-
-
-
-

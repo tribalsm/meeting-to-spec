@@ -1,62 +1,50 @@
-# meeting-to-spec backend
+# Backend Meeting to Spec
 
-FastAPI MVP: multipart upload → Groq Whisper → YandexGPT → transcription + analysis.
+FastAPI принимает запись встречи, распознает речь через Groq Whisper и извлекает структуру технического задания через YandexGPT.
 
-## Run locally
-
-Verified with Python 3.14.6 on Windows. Run from the backend directory:
+## Настройка и запуск
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-# For a new installation only: copy .env.example to .env and fill credentials.
-# Do not overwrite an existing .env.
+Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-The local .env is loaded relative to the Python modules. Environment variables override it.
-GET /health returns {"status":"ok"} even without AI credentials. API docs: http://localhost:8000/docs.
+Заполните в `.env` переменные `GROQ_API_KEY`, `YANDEX_API_KEY` и `YANDEX_FOLDER_ID`. Существующий `.env` заменять не нужно. Файл загружается относительно модулей backend, поэтому команда запуска не зависит от текущего профиля PowerShell.
 
-## Frontend contract
+Промпты находятся в `prompts.py`. `analysis.py` делит длинные транскрипции на части, проверяет структуру ответа модели и объединяет результаты без повторяющихся требований и ссылок на сегменты.
 
-```javascript
-const form = new FormData();
-form.append("file", selectedFile);
-const response = await fetch("http://localhost:8000/api/analyze", {
-  method: "POST",
-  body: form,
-}); // Do not manually set Content-Type: the browser supplies the multipart boundary.
-const data = await response.json();
-if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Upload validation failed");
-// data.status, data.filename, data.transcription.text, data.transcription.segments,
-// data.analysis.summary, roles, requirements, userScenarios, constraints,
-// conditions, openQuestions, agreements, contradictions
-```
+## HTTP API
 
-Requirements retain id/title/description/role/priority/confidence/needsClarification/sourceSegmentIds.
-Scenarios retain title/description/confidence/sourceSegmentIds. Segment IDs are integers;
-sourceSegmentIds are deduplicated and limited to existing segments. Missing evidence marks
-a requirement as needing clarification. No automatic retries of paid requests.
+### `GET /health`
 
-Accepted extensions: .mp3, .mp4, .wav, .m4a, .webm (case-insensitive), up to 25 MiB.
-Extension validation does not prove that the bytes are valid audio; provider rejection returns 502.
-No audio conversion or chunking. Each provider has a 120-second read timeout; the frontend
-should display a pending state and avoid short request timeouts.
+Возвращает `{"status":"ok"}` без обращения к AI.
 
-| HTTP status | Meaning |
+### `POST /api/analyze`
+
+Принимает `multipart/form-data`, поле `file`. Поддерживаются `.mp3`, `.mp4`, `.wav`, `.m4a`, `.webm` до 25 МиБ.
+
+Успешный ответ содержит:
+
+- `filename` - имя загруженного файла;
+- `transcription.text` и `transcription.segments` - текст и фрагменты с таймкодами;
+- `analysis` - резюме, роли, требования, сценарии, ограничения, условия, вопросы, договоренности и противоречия.
+
+`sourceSegmentIds` содержит только существующие идентификаторы сегментов. Требование без подтверждающего фрагмента получает `needsClarification: true`.
+
+| Код | Значение |
 | --- | --- |
-| 200 | Successful transcription and analysis |
-| 400 | Unsupported extension or empty file |
-| 413 | File exceeds limit |
-| 422 | Missing multipart file or no recognized speech |
-| 502 | Transcription or analysis failed, distinguished by detail |
-| 500 | Internal file-processing failure |
+| 200 | Анализ завершен |
+| 400 | Не выбран файл, пустой файл или неверное расширение |
+| 413 | Размер превышает 25 МиБ |
+| 422 | Нет речи, медиа не читается или транскрипция слишком длинная |
+| 502 | Временная или внешняя ошибка Groq или YandexGPT |
+| 500 | Внутренняя ошибка обработки файла |
 
-CORS defaults to http://localhost:5173 and http://127.0.0.1:5173.
-Set CORS_ORIGINS to a comma-separated list of exact frontend origins for deployment.
-This replaces the defaults. No secrets are returned in error details or provider error logs.
+Для диагностируемых ошибок добавляются `X-Error-Code` и `X-Request-ID`. Ответы и журналы не содержат ключи или сырой текст ошибки провайдера.
 
-## Tests
+## Тесты
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
@@ -64,16 +52,8 @@ This replaces the defaults. No secrets are returned in error details or provider
 .\.venv\Scripts\python.exe -m compileall -q -x "[\\/]\.venv[\\/]" .
 ```
 
-Unit tests block provider HTTP transports and use mocks. A single real smoke test returned
-HTTP 200 with eight segments and a nonempty summary. Its audio was a historical announcement,
-not a requirements meeting; zero requirements were appropriate. The model produced an
-unsupported role. The prompt was tightened afterwards, without another paid request.
-Extraction quality on a real customer meeting remains unverified; AI output requires review.
+Тесты блокируют реальные сетевые вызовы и используют заглушки.
 
-## Deployment boundary
+## Развертывание
 
-Local frontend integration is ready. Production deployment is not configured or verified.
-Configure hosting, credentials, exact CORS origins and proxy upload/time limits before deployment.
-The 25 MiB application check runs after multipart parsing: a public reverse proxy must also limit
-request size to prevent oversized uploads consuming temporary disk space. Long meetings exceeding
-the model context window are not chunked; upstream errors remain controlled 502 responses.
+По умолчанию CORS разрешает `http://localhost:5173` и `http://127.0.0.1:5173`. Для публикации задайте точные адреса через `CORS_ORIGINS`. Настройте лимит тела запроса на reverse proxy не ниже 25 МиБ и храните ключи только в секретах среды выполнения.

@@ -86,6 +86,15 @@ def test_analyze_rejects_file_over_limit():
     assert response.status_code == 413
 
 
+def test_analyze_accepts_17_mib_file(successful_ai_mocks):
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("meeting.mp3", b"0" * (17 * 1024 * 1024), "audio/mpeg")},
+    )
+
+    assert response.status_code == 200
+
+
 def test_transcription_error_returns_502(monkeypatch):
     def fail_transcription(_path):
         raise RuntimeError("Groq unavailable")
@@ -113,6 +122,36 @@ def test_analysis_error_returns_502(monkeypatch):
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Не удалось выполнить анализ транскрипции"
+
+
+def test_provider_error_returns_safe_specific_message_and_code(monkeypatch):
+    monkeypatch.setattr(main, "transcribe_file", lambda _path: (_ for _ in ()).throw(
+        main.TranscriptionServiceError("GROQ_RATE_LIMIT", "Повторите попытку через минуту")
+    ))
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("meeting.mp3", b"audio", "audio/mpeg")},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Повторите попытку через минуту"
+    assert response.headers["x-error-code"] == "GROQ_RATE_LIMIT"
+    assert response.headers["x-request-id"]
+
+
+def test_too_long_transcript_returns_422(monkeypatch):
+    monkeypatch.setattr(main, "transcribe_file", lambda _path: TRANSCRIPTION)
+    monkeypatch.setattr(main, "analyze_transcription", lambda _value: (_ for _ in ()).throw(
+        main.AnalysisInputTooLong("Транскрипция слишком длинная")
+    ))
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("meeting.mp3", b"audio", "audio/mpeg")},
+    )
+
+    assert response.status_code == 422
+    assert "слишком длинная" in response.json()["detail"]
+    assert response.headers["x-error-code"] == "ANALYSIS_INPUT_TOO_LONG"
 
 
 def test_segments_keep_expected_structure(successful_ai_mocks):

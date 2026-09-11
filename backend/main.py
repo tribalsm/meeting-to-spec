@@ -1,13 +1,19 @@
 import os
 import tempfile
 import logging
+import uuid
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
-from transcription import transcribe_file
-from analysis import analyze_transcription
+from transcription import TranscriptionServiceError, transcribe_file
+from analysis import (
+    AnalysisInputTooLong,
+    AnalysisResponseError,
+    AnalysisServiceError,
+    analyze_transcription,
+)
 
 
 app = FastAPI()
@@ -39,6 +45,7 @@ def health():
 @app.post("/api/analyze")
 async def analyze(file: UploadFile = File(...)):
     temp_file_path = None
+    request_id = uuid.uuid4().hex[:12]
 
     try:
         if not file.filename:
@@ -84,12 +91,21 @@ async def analyze(file: UploadFile = File(...)):
                 temp_file_path
             )
 
+        except TranscriptionServiceError as error:
+            logger.error("Ошибка транскрипции [%s]: %s", request_id, error.code)
+            status_code = 422 if error.code == "GROQ_MEDIA_INVALID" else 502
+            raise HTTPException(
+                status_code=status_code,
+                detail=error.user_message,
+                headers={"X-Error-Code": error.code, "X-Request-ID": request_id},
+            ) from None
         except Exception:
-            logger.error("Ошибка транскрипции: внешний сервис не выполнил запрос")
+            logger.error("Ошибка транскрипции [%s]: TRANSCRIPTION_UNEXPECTED", request_id)
 
             raise HTTPException(
                 status_code=502,
-                detail="Не удалось выполнить распознавание речи"
+                detail="Не удалось выполнить распознавание речи",
+                headers={"X-Error-Code": "TRANSCRIPTION_UNEXPECTED", "X-Request-ID": request_id},
             )
 
         if not transcription.get("text", "").strip():
@@ -102,12 +118,27 @@ async def analyze(file: UploadFile = File(...)):
                 transcription
             )
 
+        except AnalysisInputTooLong as error:
+            logger.warning("Ошибка анализа [%s]: %s", request_id, error.code)
+            raise HTTPException(
+                status_code=422,
+                detail=error.user_message,
+                headers={"X-Error-Code": error.code, "X-Request-ID": request_id},
+            ) from None
+        except (AnalysisServiceError, AnalysisResponseError) as error:
+            logger.error("Ошибка анализа [%s]: %s", request_id, error.code)
+            raise HTTPException(
+                status_code=502,
+                detail=error.user_message,
+                headers={"X-Error-Code": error.code, "X-Request-ID": request_id},
+            ) from None
         except Exception:
-            logger.error("Ошибка анализа: внешний сервис не выполнил запрос")
+            logger.error("Ошибка анализа [%s]: ANALYSIS_UNEXPECTED", request_id)
 
             raise HTTPException(
                 status_code=502,
-                detail="Не удалось выполнить анализ транскрипции"
+                detail="Не удалось выполнить анализ транскрипции",
+                headers={"X-Error-Code": "ANALYSIS_UNEXPECTED", "X-Request-ID": request_id},
             )
 
         return {
@@ -120,8 +151,12 @@ async def analyze(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception:
-        logger.error("Внутренняя ошибка обработки файла")
-        raise HTTPException(status_code=500, detail="Не удалось обработать файл") from None
+        logger.error("Внутренняя ошибка обработки файла [%s]", request_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Не удалось обработать файл",
+            headers={"X-Error-Code": "PROCESSING_FAILED", "X-Request-ID": request_id},
+        ) from None
     finally:
         try:
             await file.close()

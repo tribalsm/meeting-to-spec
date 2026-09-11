@@ -5,3 +5,7 @@
   margin: 0 auto;
   padding: var(--space-10) var(--space-5);
 }
+
+.app__anchor {
+  scroll-margin-top: 88px;
+}

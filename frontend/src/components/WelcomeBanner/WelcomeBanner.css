@@ -2,13 +2,16 @@
 
 .welcome {
   margin-bottom: var(--space-8);
+  position: sticky;
+  top: 12px;
+  z-index: 10;
 }
 
 .welcome__steps {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
+  gap: 0;
   flex-wrap: nowrap; /* запрещаем перенос */
 }
 
@@ -21,6 +24,32 @@
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   flex-shrink: 0; /* не даём сжиматься */
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.welcome__step-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.welcome__step:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.welcome__step--active {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 14px rgba(0, 171, 250, 0.16);
+}
+
+.welcome__step--done .welcome__step-num {
+  background: var(--color-success);
+}
+
+.welcome__step:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .welcome__step-num {
@@ -51,8 +80,17 @@
   flex-shrink: 0;
 }
 
+.welcome__divider--done {
+  background: var(--color-success);
+}
+
 @media (max-width: 600px) {
   .welcome__divider {
     display: none;
   }
+  .welcome { top: 6px; }
+  .welcome__steps { justify-content: stretch; }
+  .welcome__step-wrap { flex: 1; }
+  .welcome__step { width: 100%; justify-content: center; padding: var(--space-2); }
+  .welcome__step-text { white-space: normal; font-size: var(--text-xs); }
 }

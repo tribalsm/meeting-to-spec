@@ -231,6 +231,10 @@
   scrollbar-color: var(--color-border) transparent;
 }
 
+.result-view__requirement-anchor:focus {
+  outline: none;
+}
+
 .result-view__empty {
   font-size: var(--text-sm);
   color: var(--color-text-disabled);
