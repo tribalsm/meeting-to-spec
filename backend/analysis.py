@@ -268,8 +268,17 @@ openQuestions или constraints в зависимости от контекст
 
 является сценарием.
 
-21. Не дублируй одну и ту же информацию
-в нескольких категориях без необходимости.
+21. Одна и та же информация МОЖЕТ относиться к нескольким категориям,
+если она имеет разный смысл в каждой из них.
+
+Например:
+- "бронировать можно максимум за две недели" является ограничением;
+- если это одновременно определяет поведение функции бронирования,
+оно может учитываться и при формировании requirement.
+
+Не избегай constraints, conditions, agreements и openQuestions
+только потому, что связанная информация уже отражена в requirements.
+Не дублируй только полностью одинаковые пункты внутри одной категории.
 
 22. Перед формированием результата перечитай весь транскрипт
 и проверь, что ни одна явно сформулированная функция системы
@@ -280,7 +289,65 @@ openQuestions или constraints в зависимости от контекст
 которые случайно были объединены в одно требование.
 Если есть - раздели их.
 
-24. Ответ должен начинаться символом {{
+24. ОБЯЗАТЕЛЬНАЯ ПРОВЕРКА КАТЕГОРИЙ.
+
+Перед ответом отдельно просмотри ВСЕ сегменты разговора
+для каждой из следующих категорий:
+
+- requirements;
+- userScenarios;
+- roles;
+- constraints;
+- conditions;
+- openQuestions;
+- agreements;
+- contradictions.
+
+Нельзя возвращать [] для категории,
+если в транскрипте есть хотя бы одно явное высказывание,
+относящееся к ней.
+
+25. Фразы вида:
+"пока не решили",
+"нужно обсудить",
+"надо уточнить",
+"вернемся позже",
+"пока неизвестно"
+ОБЯЗАТЕЛЬНО проверяй как кандидатов в openQuestions.
+
+26. Фразы вида:
+"решили",
+"оставляем",
+"делаем",
+"для первой версии не делаем",
+"в MVP не входит",
+"договорились"
+ОБЯЗАТЕЛЬНО проверяй как agreements.
+
+27. Любые числовые, временные или количественные пределы,
+например:
+"не позднее чем за час",
+"максимум за две недели",
+"не больше пяти",
+должны быть проверены как constraints или conditions.
+
+28. Формулировки вида:
+"только для сотрудников",
+"только администратор",
+"если пользователь авторизован",
+"при условии..."
+должны быть проверены как conditions или constraints.
+
+29. Если в разных частях разговора есть несовместимые утверждения,
+не игнорируй их.
+Добавь их в contradictions,
+даже если по одному из них позже было принято решение.
+
+30. После заполнения JSON сделай внутреннюю финальную проверку:
+для каждой обязательной категории убедись,
+что просмотрен весь транскрипт и ни один подходящий факт не потерян.
+
+31. Ответ должен начинаться символом {{
 и заканчиваться символом }}.
 
 Не используй ```json.
@@ -701,6 +768,162 @@ def _normalize_scenarios(
 # Основная функция анализа
 # --------------------------------------------------
 
+
+# --------------------------------------------------
+# Второй LLM-проход для аналитических категорий
+# --------------------------------------------------
+
+def _analyze_secondary_categories(
+    api_key: str,
+    segments_block: str
+) -> dict:
+    """
+    Отдельно извлекает категории, которые основной запрос
+    может пропустить из-за большого количества требований.
+    """
+
+    prompt = f"""
+Ты - бизнес-аналитик.
+
+Проанализируй транскрипт встречи и верни ТОЛЬКО JSON
+ровно с пятью полями:
+
+{{
+  "constraints": [],
+  "conditions": [],
+  "openQuestions": [],
+  "agreements": [],
+  "contradictions": []
+}}
+
+ЗАДАЧА:
+
+constraints:
+- ограничения доступа;
+- временные, количественные и организационные ограничения;
+- ограничения текущей версии продукта.
+
+conditions:
+- условия, при которых действует функция или правило;
+- формулировки "если", "только", "при условии".
+
+openQuestions:
+- всё, что ещё не решено;
+- всё, что нужно отдельно обсудить, уточнить или согласовать;
+- будущие функции, по которым решение пока не принято.
+
+agreements:
+- явно принятые решения;
+- договорённости участников;
+- что решили включить или не включать в первую версию.
+
+contradictions:
+- несовместимые или конфликтующие утверждения;
+- ситуации, где текущее правило конфликтует с другой потребностью.
+
+ВАЖНО:
+
+1. Просмотри ВСЮ транскрипцию.
+2. Не выдумывай факты.
+3. Одна информация может одновременно относиться к разным категориям,
+если смысл категории различается.
+4. Если прозвучало "пока не решили", это кандидат в openQuestions.
+5. Если прозвучало "отдельно согласуем", это кандидат в openQuestions.
+6. Если прозвучало "для первой версии не делаем",
+это кандидат в agreements и/или constraints.
+7. Если прозвучало "только сотрудникам",
+это кандидат в constraints или conditions.
+8. Если участники сами называют ситуацию противоречием,
+она должна попасть в contradictions.
+9. Возвращай [] только если в разговоре действительно нет данных
+для этой категории.
+10. Никакого markdown и пояснений. Только JSON.
+
+ТРАНСКРИПТ:
+
+{segments_block}
+"""
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    body = {
+        "model": "openai/gpt-oss-20b",
+        "reasoning_effort": "low",
+        "response_format": {
+            "type": "json_object"
+        },
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Ты извлекаешь аналитические категории "
+                    "из транскрипта встречи. "
+                    "Возвращай только валидный JSON."
+                )
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.1,
+        "max_completion_tokens": 1400
+    }
+
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers=headers,
+        json=body,
+        timeout=(10, 45)
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    raw_text = (
+        data["choices"][0]
+        ["message"]
+        ["content"]
+    )
+
+    result = _extract_json(raw_text)
+
+    return {
+        "constraints": _normalize_string_list(
+            result.get("constraints", [])
+        ),
+        "conditions": _normalize_string_list(
+            result.get("conditions", [])
+        ),
+        "openQuestions": _normalize_string_list(
+            result.get("openQuestions", [])
+        ),
+        "agreements": _normalize_string_list(
+            result.get("agreements", [])
+        ),
+        "contradictions": _normalize_string_list(
+            result.get("contradictions", [])
+        )
+    }
+
+
+def _merge_unique_strings(first: list, second: list) -> list:
+    """
+    Объединяет два списка строк без дублей.
+    """
+    result = []
+
+    for item in first + second:
+        if item and item not in result:
+            result.append(item)
+
+    return result
+
+
 def analyze_transcription(
     transcription: dict
 ) -> dict:
@@ -911,7 +1134,7 @@ def analyze_transcription(
     # ----------------------------------------------
 
     body = {
-        "model": "openai/gpt-oss-20b",
+        "model": "openai/gpt-oss-120b",
 
         "reasoning_effort": "low",
 
@@ -931,7 +1154,7 @@ def analyze_transcription(
         ],
 
         "temperature": 0.2,
-        "max_completion_tokens": 3000
+        "max_completion_tokens": 4000
     }
 
 
@@ -948,7 +1171,7 @@ def analyze_transcription(
 
             # connect timeout,
             # read timeout
-            timeout=(10, 60)
+            timeout=(10, 90)
         )
 
         response.raise_for_status()
@@ -1136,5 +1359,35 @@ def analyze_transcription(
         )
     )
 
+
+    # ----------------------------------------------
+    # Второй проход только для дополнительных категорий
+    # ----------------------------------------------
+
+    try:
+        secondary = _analyze_secondary_categories(
+            api_key,
+            segments_block
+        )
+
+        for key in (
+            "constraints",
+            "conditions",
+            "openQuestions",
+            "agreements",
+            "contradictions"
+        ):
+            normalized_result[key] = _merge_unique_strings(
+                normalized_result.get(key, []),
+                secondary.get(key, [])
+            )
+
+    except Exception as error:
+        # Второй проход не должен ломать основной анализ
+        print(
+            "Secondary LLM pass warning: "
+            f"{type(error).__name__}: {error}",
+            flush=True
+        )
 
     return normalized_result
