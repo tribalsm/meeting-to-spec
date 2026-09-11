@@ -1,0 +1,73 @@
+/* src/components/Layout/Layout.css */
+
+/* ── Обёртка всей страницы ── */
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Шапка ── */
+.layout__header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.layout__header-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Логотип ── */
+.layout__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.layout__logo-text {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* ── Навигация / бейдж ── */
+.layout__nav-badge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-accent);
+}
+
+/* ── Основная область ── */
+.layout__main {
+  flex: 1;              /* растягивает main, прижимает футер вниз */
+}
+
+.layout__content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-5);
+}
+
+/* ── Футер ── */
+.layout__footer {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  padding: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}

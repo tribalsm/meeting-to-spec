@@ -1,0 +1,268 @@
+/* src/components/RequirementCard/RequirementCard.css */
+
+.req-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+  background: var(--color-surface);
+}
+
+.req-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.req-card--highlighted {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(0, 171, 250, 0.15);
+}
+
+.req-card--clarify {
+  border-color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+/* ── Шапка ── */
+.req-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.req-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.req-card__title {
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.req-card__role {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+
+.req-card__badge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-warning);
+  background: #fff3e0;
+  border: 1px solid var(--color-warning);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  align-self: flex-start;
+}
+
+/* ── Описание ── */
+.req-card__desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Сегменты ── */
+.req-card__segments {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.req-card__segments-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-disabled);
+}
+
+.req-card__segment-tag {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+
+/* ── Редактирование ── */
+.req-card__edit-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.req-card__input {
+  border: 1px solid var(--color-border-focus);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+}
+
+.req-card__input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 171, 250, 0.2);
+}
+
+.req-card__input--title {
+  flex: 2;
+  min-width: 120px;
+}
+
+.req-card__input--role {
+  flex: 1;
+  min-width: 80px;
+}
+
+.req-card__textarea {
+  width: 100%;
+  border: 1px solid var(--color-border-focus);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+}
+
+.req-card__textarea:focus {
+  box-shadow: 0 0 0 3px rgba(0, 171, 250, 0.2);
+}
+
+/* ── Кнопки действий ── */
+.req-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: nowrap; /* было wrap — меняем */
+  margin-top: var(--space-1);
+}
+
+
+.req-card__btn {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-1) var(--space-2); /* было space-3 — уменьшили */
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap; /* текст внутри кнопки не переносится */
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+
+.req-card__btn--edit {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.req-card__btn--edit:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.req-card__btn--clarify {
+  background: var(--color-bg);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.req-card__btn--clarify:hover {
+  background: var(--color-warning-light);
+}
+
+.req-card__btn--clarify-active {
+  background: var(--color-success-light);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.req-card__btn--save {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.req-card__btn--save:hover {
+  background: var(--color-accent-hover);
+}
+
+.req-card__btn--cancel {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.req-card__btn--cancel:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.req-card__btn--delete {
+  background: var(--color-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
+  margin-left: auto;
+}
+
+.req-card__btn--delete:hover {
+  background: var(--color-error-light);
+}
+
+.req-card__btn--delete-yes {
+  background: var(--color-error);
+  color: #fff;
+}
+
+.req-card__btn--delete-yes:hover {
+  opacity: 0.9;
+}
+
+.req-card__delete-confirm {
+  font-size: var(--text-xs);
+  color: var(--color-error);
+  font-weight: var(--font-medium);
+  align-self: center;
+}
+
+.req-card__delete-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;  
+  flex-shrink: 0;     
+}
+
+.req-card {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.req-card__btn--clarify-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

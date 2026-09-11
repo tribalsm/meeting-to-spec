@@ -1,0 +1,58 @@
+/* src/components/WelcomeBanner/WelcomeBanner.css */
+
+.welcome {
+  margin-bottom: var(--space-8);
+}
+
+.welcome__steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: nowrap; /* запрещаем перенос */
+}
+
+.welcome__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  flex-shrink: 0; /* не даём сжиматься */
+}
+
+.welcome__step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome__step-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-medium);
+  white-space: nowrap; /* текст внутри шага не переносится */
+}
+
+.welcome__divider {
+  width: 24px;
+  height: 2px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .welcome__divider {
+    display: none;
+  }
+}

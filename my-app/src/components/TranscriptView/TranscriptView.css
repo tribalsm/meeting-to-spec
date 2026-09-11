@@ -1,0 +1,90 @@
+/* src/components/TranscriptView/TranscriptView.css */
+
+.transcript-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 480px;
+  overflow-y: auto;
+  /* тонкий скроллбар */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.transcript-view::-webkit-scrollbar {
+  width: 4px;
+}
+
+.transcript-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.transcript-view::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+/* ── Сегмент ── */
+.transcript-view__segment {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  border-bottom: 1px solid var(--color-border);
+  transition:
+    background var(--transition-normal),
+    border-color var(--transition-normal);
+}
+
+.transcript-view__segment:last-child {
+  border-bottom: none;
+}
+
+/* Подсветка */
+.transcript-view__segment--highlighted {
+  background: var(--color-accent-light);
+  border-bottom-color: transparent;
+  border-left: 3px solid var(--color-accent);
+  padding-left: calc(var(--space-2) - 3px);
+}
+
+/* ── Мета: номер + время ── */
+.transcript-view__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.transcript-view__index {
+  font-size: var(--text-xs);
+  color: var(--color-text-disabled);
+  font-weight: var(--font-medium);
+  min-width: 16px;
+  text-align: center;
+}
+
+.transcript-view__time {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+}
+
+/* ── Текст ── */
+.transcript-view__text {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+/* ── Пустое состояние ── */
+.transcript-view__empty {
+  font-size: var(--text-sm);
+  color: var(--color-text-disabled);
+  padding: var(--space-4);
+  text-align: center;
+}
