@@ -288,13 +288,7 @@ openQuestions или constraints в зависимости от контекст
 Не добавляй никаких пояснений до или после JSON.
 
 
-ПОЛНЫЙ ТЕКСТ:
-
-{full_text}
-
-
-СЕГМЕНТЫ:
-
+СЕГМЕНТЫ РАЗГОВОРА:
 {segments_block}
 """
 
@@ -716,21 +710,12 @@ def analyze_transcription(
     # ----------------------------------------------
 
     api_key = os.getenv(
-        "YANDEX_API_KEY"
-    )
-
-    folder_id = os.getenv(
-        "YANDEX_FOLDER_ID"
+        "GROQ_API_KEY"
     )
 
     if not api_key:
         raise RuntimeError(
-            "YANDEX_API_KEY не найден в .env"
-        )
-
-    if not folder_id:
-        raise RuntimeError(
-            "YANDEX_FOLDER_ID не найден в .env"
+            "GROQ_API_KEY не найден в .env"
         )
 
 
@@ -902,19 +887,18 @@ def analyze_transcription(
 
     user_prompt = (
         USER_PROMPT_TEMPLATE.format(
-            full_text=full_text,
             segments_block=segments_block
         )
     )
 
 
     # ----------------------------------------------
-    # Yandex API headers
+    # Groq API headers
     # ----------------------------------------------
 
     headers = {
         "Authorization": (
-            f"Api-Key {api_key}"
+            f"Bearer {api_key}"
         ),
 
         "Content-Type":
@@ -927,27 +911,27 @@ def analyze_transcription(
     # ----------------------------------------------
 
     body = {
-        "modelUri": (
-            f"gpt://{folder_id}/"
-            "yandexgpt-lite"
-        ),
+        "model": "openai/gpt-oss-20b",
 
-        "completionOptions": {
-            "stream": False,
-            "temperature": 0.2,
-            "maxTokens": 4000
+        "reasoning_effort": "low",
+
+        "response_format": {
+            "type": "json_object"
         },
 
         "messages": [
             {
                 "role": "system",
-                "text": SYSTEM_PROMPT
+                "content": SYSTEM_PROMPT
             },
             {
                 "role": "user",
-                "text": user_prompt
+                "content": user_prompt
             }
-        ]
+        ],
+
+        "temperature": 0.2,
+        "max_completion_tokens": 3000
     }
 
 
@@ -958,13 +942,13 @@ def analyze_transcription(
     try:
 
         response = requests.post(
-            API_URL,
+            "https://api.groq.com/openai/v1/chat/completions",
             headers=headers,
             json=body,
 
             # connect timeout,
             # read timeout
-            timeout=(10, 120)
+            timeout=(10, 60)
         )
 
         response.raise_for_status()
@@ -972,8 +956,13 @@ def analyze_transcription(
 
     except requests.RequestException as error:
 
+        print(
+            f"Groq LLM ERROR: {type(error).__name__}: {error}",
+            flush=True
+        )
+
         raise RuntimeError(
-            "Ошибка при обращении к YandexGPT API"
+            "Ошибка при обращении к Groq LLM API"
         ) from error
 
 
@@ -985,41 +974,10 @@ def analyze_transcription(
 
         data = response.json()
 
-        alternative = (
-            data["result"]
-            ["alternatives"][0]
-        )
-
-
-        if not isinstance(
-            alternative,
-            dict
-        ):
-            raise ValueError(
-                "Некорректная структура "
-                "альтернативы YandexGPT"
-            )
-
-
-        status = alternative.get(
-            "status"
-        )
-
-
-        if (
-            status is not None
-            and status
-            != "ALTERNATIVE_STATUS_FINAL"
-        ):
-            raise ValueError(
-                "YandexGPT не завершил генерацию"
-            )
-
-
         raw_text = (
-            alternative
+            data["choices"][0]
             ["message"]
-            ["text"]
+            ["content"]
         )
 
 
@@ -1031,7 +989,7 @@ def analyze_transcription(
     ) as error:
 
         raise ValueError(
-            "YandexGPT вернул ответ "
+            "Groq LLM вернул ответ "
             "неожиданной структуры"
         ) from error
 
