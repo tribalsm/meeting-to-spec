@@ -11,7 +11,8 @@ from prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 load_dotenv(Path(__file__).with_name(".env"))
 
-API_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+API_URL = "https://api.groq.com/openai/v1/chat/completions"
+ANALYSIS_MODEL = "openai/gpt-oss-120b"
 MAX_CHUNK_CHARS = 12_000
 MAX_ANALYSIS_CHUNKS = 8
 REQUEST_TIMEOUT = (10, 120)
@@ -32,14 +33,14 @@ RESPONSE_SCHEMA = {
 
 class AnalysisServiceError(RuntimeError):
     def __init__(self, code: str, user_message: str):
-        super().__init__(f"Ошибка при обращении к YandexGPT API: {code}")
+        super().__init__(f"Ошибка сервиса анализа: {code}")
         self.code = code
         self.user_message = user_message
 
 
 class AnalysisResponseError(ValueError):
     def __init__(self, code: str, user_message: str):
-        super().__init__(f"Некорректный ответ YandexGPT API: {code}")
+        super().__init__(f"Некорректный ответ сервиса анализа: {code}")
         self.code = code
         self.user_message = user_message
 
@@ -273,16 +274,19 @@ def _segments_block(segments: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _request_analysis(segments: list[dict], valid_segment_ids: set, api_key: str, folder_id: str) -> dict:
+def _request_analysis(segments: list[dict], valid_segment_ids: set, api_key: str) -> dict:
     body = {
-        "modelUri": f"gpt://{folder_id}/yandexgpt-lite",
-        "completionOptions": {"stream": False, "temperature": 0.1, "maxTokens": 4000},
+        "model": ANALYSIS_MODEL,
+        "reasoning_effort": "low",
+        "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "text": SYSTEM_PROMPT},
-            {"role": "user", "text": USER_PROMPT_TEMPLATE.format(segments_block=_segments_block(segments))},
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(segments_block=_segments_block(segments))},
         ],
+        "temperature": 0.1,
+        "max_completion_tokens": 4000,
     }
-    headers = {"Authorization": f"Api-Key {api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     response = None
     for attempt in range(2):
         try:
@@ -293,7 +297,7 @@ def _request_analysis(segments: list[dict], valid_segment_ids: set, api_key: str
             if attempt == 0:
                 continue
             raise AnalysisServiceError(
-                "YANDEX_TEMPORARY", "Сервис анализа временно недоступен. Повторите попытку позже."
+                "GROQ_LLM_TEMPORARY", "Сервис анализа временно недоступен. Повторите попытку позже."
             ) from error
         except requests.RequestException as error:
             status = getattr(getattr(error, "response", None), "status_code", None)
@@ -301,32 +305,34 @@ def _request_analysis(segments: list[dict], valid_segment_ids: set, api_key: str
                 continue
             if status == 429:
                 message = "Сервис анализа перегружен. Повторите попытку через минуту."
-                code = "YANDEX_RATE_LIMIT"
+                code = "GROQ_LLM_RATE_LIMIT"
             elif status in {400, 413}:
                 message = "Транскрипция не помещается в запрос анализа. Попробуйте более короткую запись."
-                code = "YANDEX_INPUT_REJECTED"
+                code = "GROQ_LLM_INPUT_REJECTED"
             else:
                 message = "Сервис анализа не выполнил запрос. Повторите попытку позже."
-                code = "YANDEX_FAILED"
+                code = "GROQ_LLM_FAILED"
             raise AnalysisServiceError(code, message) from error
     try:
         data = response.json()
-        alternative = data["result"]["alternatives"][0]
-        if not isinstance(alternative, dict):
+        choice = data["choices"][0]
+        if not isinstance(choice, dict):
             raise TypeError
-        status = alternative.get("status")
-        if status is not None and status != "ALTERNATIVE_STATUS_FINAL":
+        status = choice.get("finish_reason")
+        if status is not None and status != "stop":
             raise ValueError("generation_not_final")
-        raw_text = alternative["message"]["text"]
+        raw_text = choice["message"]["content"]
+        if not isinstance(raw_text, str):
+            raise TypeError
     except (ValueError, KeyError, IndexError, TypeError) as error:
         raise AnalysisResponseError(
-            "YANDEX_RESPONSE_INVALID", "Сервис анализа вернул некорректный ответ. Повторите попытку."
+            "GROQ_LLM_RESPONSE_INVALID", "Сервис анализа вернул некорректный ответ. Повторите попытку."
         ) from error
     try:
         return _normalize_result(_extract_json(raw_text), valid_segment_ids)
     except ValueError as error:
         raise AnalysisResponseError(
-            "YANDEX_JSON_INVALID", "Не удалось разобрать результат анализа. Повторите попытку."
+            "GROQ_LLM_JSON_INVALID", "Не удалось разобрать результат анализа. Повторите попытку."
         ) from error
 
 
@@ -377,12 +383,9 @@ def _merge_results(results: list[dict]) -> dict:
 
 
 def analyze_transcription(transcription: dict) -> dict:
-    api_key = os.getenv("YANDEX_API_KEY")
-    folder_id = os.getenv("YANDEX_FOLDER_ID")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise RuntimeError("YANDEX_API_KEY не найден в .env")
-    if not folder_id:
-        raise RuntimeError("YANDEX_FOLDER_ID не найден в .env")
+        raise RuntimeError("GROQ_API_KEY не найден в .env")
     full_text, segments = _prepare_transcription(transcription)
     chunks = _split_transcription(full_text, segments)
     if len(chunks) > MAX_ANALYSIS_CHUNKS:
@@ -390,5 +393,5 @@ def analyze_transcription(transcription: dict) -> dict:
             "Транскрипция слишком длинная для анализа. Разделите запись на части."
         )
     valid_ids = {segment["id"] for segment in segments}
-    results = [_request_analysis(chunk, valid_ids, api_key, folder_id) for chunk in chunks]
+    results = [_request_analysis(chunk, valid_ids, api_key) for chunk in chunks]
     return _merge_results(results)

@@ -9,7 +9,7 @@ meeting-to-spec/
 |- backend/                  FastAPI и интеграции с AI
 |  |- main.py                HTTP API, проверка файлов, обработка ошибок
 |  |- transcription.py       распознавание речи через Groq Whisper
-|  |- analysis.py            разбиение транскрипции, вызов и проверка YandexGPT
+|  |- analysis.py            разбиение транскрипции, вызов и проверка Groq GPT-OSS
 |  |- prompts.py             системный промпт и шаблон запроса
 |  `- tests/                 модульные и API-тесты
 |- frontend/                 React, TypeScript и Vite
@@ -23,14 +23,14 @@ meeting-to-spec/
 2. Backend сохраняет файл во временную папку и проверяет расширение и размер.
 3. Groq Whisper возвращает текст и временные сегменты.
 4. Длинная транскрипция делится на фрагменты до 12 000 символов.
-5. YandexGPT извлекает структуру ТЗ из каждого фрагмента.
+5. Groq GPT-OSS извлекает структуру ТЗ из каждого фрагмента.
 6. Backend проверяет JSON, объединяет и очищает результаты.
 7. Frontend показывает результат, связывает требования с фрагментами и формирует `.md` файл.
 
 ## Используемые API
 
 - Groq API, модель `whisper-large-v3-turbo` - распознавание русской речи.
-- Yandex Cloud Foundation Models API, модель `yandexgpt-lite` - извлечение требований.
+- Groq API, модель `openai/gpt-oss-120b` - извлечение требований.
 
 Ключи хранятся только в `backend/.env`. Промпты вынесены в [backend/prompts.py](backend/prompts.py), чтобы их можно было проверять и менять отдельно от сетевого кода.
 
@@ -45,7 +45,7 @@ Set-Location 'C:\Users\tribal\Documents\hackathon\backend'
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
-# Заполните GROQ_API_KEY, YANDEX_API_KEY и YANDEX_FOLDER_ID в .env
+# Заполните GROQ_API_KEY в .env
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -82,7 +82,7 @@ npm run lint
 npm run build
 ```
 
-Тесты используют заглушки и не расходуют лимиты Groq или YandexGPT.
+Тесты используют заглушки и не расходуют лимиты Groq.
 
 ## Демонстрационные записи
 

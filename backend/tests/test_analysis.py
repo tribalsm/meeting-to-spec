@@ -12,14 +12,13 @@ TRANSCRIPT = {"text": "Нужна регистрация", "segments": [
 
 @pytest.fixture
 def api(monkeypatch):
-    monkeypatch.setenv("YANDEX_API_KEY", "unit-test-placeholder")
-    monkeypatch.setenv("YANDEX_FOLDER_ID", "unit-test-folder")
+    monkeypatch.setenv("GROQ_API_KEY", "unit-test-placeholder")
     response = Mock()
-    response.json.return_value = {"result": {"alternatives": [{"message": {
-        "text": json.dumps({"summary": "Регистрация", "requirements": [{
+    response.json.return_value = {"choices": [{"finish_reason": "stop", "message": {
+        "content": json.dumps({"summary": "Регистрация", "requirements": [{
             "title": "Регистрация", "description": "По почте", "sourceSegmentIds": ["2", 2, 999]
         }]})
-    }}]}}
+    }}]}
     post = Mock(return_value=response)
     monkeypatch.setattr(a.requests, "post", post)
     return response, post
@@ -85,7 +84,10 @@ def test_success_normalization(api):
     assert result['requirements'][0]['needsClarification'] is False
     json.dumps(result, allow_nan=False)
     assert post.call_args.kwargs['timeout'] == (10, 120)
-    assert '[id=2' in post.call_args.kwargs['json']['messages'][1]['text']
+    request = post.call_args.kwargs
+    assert request['json']['model'] == 'openai/gpt-oss-120b'
+    assert request['headers']['Authorization'] == 'Bearer unit-test-placeholder'
+    assert '[id=2' in request['json']['messages'][1]['content']
 
 
 def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
@@ -97,14 +99,14 @@ def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
     responses = []
     for number, segment_id in enumerate((0, 1), start=1):
         response = Mock()
-        response.json.return_value = {'result': {'alternatives': [{'message': {'text': json.dumps({
+        response.json.return_value = {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps({
             'summary': f'Часть {number}',
             'roles': ['Пользователь'],
             'requirements': [{
                 'title': f'Требование {number}', 'description': f'Описание {number}',
                 'sourceSegmentIds': [segment_id]
             }],
-        })}}]}}
+        })}}]}
         responses.append(response)
     api[1].side_effect = responses
 
@@ -139,10 +141,9 @@ def test_excessive_number_of_chunks_is_rejected_before_api_call(api, monkeypatch
     api[1].assert_not_called()
 
 
-@pytest.mark.parametrize('key', ['YANDEX_API_KEY', 'YANDEX_FOLDER_ID'])
-def test_missing_credentials(api, monkeypatch, key):
-    monkeypatch.delenv(key)
-    with pytest.raises(RuntimeError, match=key):
+def test_missing_credentials(api, monkeypatch):
+    monkeypatch.delenv('GROQ_API_KEY')
+    with pytest.raises(RuntimeError, match='GROQ_API_KEY'):
         a.analyze_transcription(TRANSCRIPT)
     api[1].assert_not_called()
 
@@ -151,14 +152,13 @@ def test_missing_credentials(api, monkeypatch, key):
     requests.HTTPError('401'), requests.HTTPError('429'), requests.HTTPError('500')])
 def test_http_errors(api, error):
     api[1].side_effect = error
-    with pytest.raises(RuntimeError, match='YandexGPT API'):
+    with pytest.raises(RuntimeError, match='сервиса анализа'):
         a.analyze_transcription(TRANSCRIPT)
 
 
-@pytest.mark.parametrize('payload', [None, [], {}, {'result': None}, {'result': {'alternatives': []}},
-    {'result': {'alternatives': [None]}}, {'result': {'alternatives': ['bad']}},
-    {'result': {'alternatives': [{'message': {}}]}},
-    {'result': {'alternatives': [{'status': 'ALTERNATIVE_STATUS_TRUNCATED', 'message': {'text': '{}'}}]}}])
+@pytest.mark.parametrize('payload', [None, [], {}, {'choices': None}, {'choices': []},
+    {'choices': [None]}, {'choices': ['bad']}, {'choices': [{'message': {}}]},
+    {'choices': [{'finish_reason': 'length', 'message': {'content': '{}'}}]}])
 def test_bad_response_structure(api, payload):
     api[0].json.return_value = payload
     with pytest.raises(ValueError):
@@ -172,7 +172,7 @@ def test_non_json_http_response(api):
 
 
 def test_bad_model_json(api):
-    api[0].json.return_value = {'result': {'alternatives': [{'message': {'text': 'invalid'}}]}}
+    api[0].json.return_value = {'choices': [{'finish_reason': 'stop', 'message': {'content': 'invalid'}}]}
     with pytest.raises(ValueError, match='JSON'):
         a.analyze_transcription(TRANSCRIPT)
 
