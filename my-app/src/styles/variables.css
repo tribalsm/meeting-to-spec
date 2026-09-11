@@ -1,0 +1,70 @@
+/* src/styles/variables.css */
+
+:root {
+  /* ── Акцентный цвет ── */
+  --color-accent:        #00abfa;
+  --color-accent-hover:  #0096dd;      /* чуть темнее для hover */
+  --color-accent-light:  #e6f7ff;      /* очень светлый фон-подсветка */
+  --color-accent-text:   #ffffff;      /* текст на акцентном фоне */
+
+  /* ── Нейтральные (светлая тема) ── */
+  --color-bg:            #f7f9fb;      /* фон страницы */
+  --color-surface:       #ffffff;      /* фон карточек, панелей */
+  --color-border:        #e0e7ef;      /* границы */
+  --color-border-focus:  #00abfa;      /* граница в фокусе */
+
+  /* ── Текст ── */
+  --color-text-primary:  #0f1923;      /* основной */
+  --color-text-secondary:#5a6a7a;      /* вторичный, подписи */
+  --color-text-disabled: #b0bec5;
+
+  /* ── Состояния ── */
+  --color-error:         #e53935;
+  --color-error-light:   #ffebee;
+  --color-success:       #43a047;
+  --color-success-light: #e8f5e9;
+  --color-warning:       #fb8c00;
+  --color-warning-light: #fff3e0;
+
+  /* ── Скругления ── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-pill: 999px;
+
+  /* ── Тени ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ── Типографика ── */
+  --font-sans:   'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs:   0.75rem;    /* 12px */
+  --text-sm:   0.875rem;   /* 14px */
+  --text-md:   1rem;       /* 16px */
+  --text-lg:   1.125rem;   /* 18px */
+  --text-xl:   1.375rem;   /* 22px */
+  --text-2xl:  1.75rem;    /* 28px */
+
+  --font-normal:  400;
+  --font-medium:  500;
+  --font-semibold:600;
+  --font-bold:    700;
+
+  /* ── Отступы (spacing scale) ── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+
+  /* ── Анимации ── */
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+}

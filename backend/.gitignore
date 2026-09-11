@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 .idea/
@@ -7,3 +9,8 @@ __pycache__/
 
 test.mp3
 test.mp4
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.webm

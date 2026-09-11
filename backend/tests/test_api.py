@@ -29,6 +29,7 @@ ANALYSIS = {
     "conditions": [],
     "openQuestions": [],
     "agreements": [],
+    "contradictions": [],
 }
 
 
@@ -182,3 +183,56 @@ def test_cors_allows_local_vite_origin():
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert response.headers["access-control-allow-credentials"] == "true"
+
+
+@pytest.mark.parametrize('extension', ['mp3', 'mp4', 'wav', 'm4a', 'webm', 'MP3'])
+def test_all_formats(successful_ai_mocks, extension):
+    assert client.post('/api/analyze', files={'file': ('meeting.' + extension, b'audio')}).status_code == 200
+
+
+def test_empty_file(monkeypatch):
+    def forbidden(*args):
+        pytest.fail('AI should not be called')
+    monkeypatch.setattr(main, 'transcribe_file', forbidden)
+    assert client.post('/api/analyze', files={'file': ('empty.mp3', b'')}).status_code == 400
+
+
+def test_no_speech(monkeypatch):
+    monkeypatch.setattr(main, 'transcribe_file', lambda _: {'text': '', 'segments': []})
+    assert client.post('/api/analyze', files={'file': ('silent.mp3', b'audio')}).status_code == 422
+
+
+def test_analysis_failure_cleanup_and_no_secret_logs(monkeypatch, caplog):
+    paths = []
+    def transcribe(path):
+        paths.append(path)
+        return TRANSCRIPTION
+    def fail(value):
+        assert value == TRANSCRIPTION
+        raise RuntimeError('SENSITIVE_SENTINEL')
+    monkeypatch.setattr(main, 'transcribe_file', transcribe)
+    monkeypatch.setattr(main, 'analyze_transcription', fail)
+    response = client.post('/api/analyze', files={'file': ('meeting.mp3', b'audio')})
+    assert response.status_code == 502
+    assert paths and not os.path.exists(paths[0])
+    assert 'SENSITIVE_SENTINEL' not in caplog.text + response.text
+
+
+def test_storage_error_is_controlled(monkeypatch):
+    def fail(*args, **kwargs):
+        raise OSError('SENSITIVE_SENTINEL')
+    monkeypatch.setattr(main.tempfile, 'NamedTemporaryFile', fail)
+    response = client.post('/api/analyze', files={'file': ('meeting.mp3', b'audio')})
+    assert response.status_code == 500 and 'SENSITIVE_SENTINEL' not in response.text
+
+
+@pytest.mark.parametrize('payload,limit,status', [(b'', 10, 400), (b'12345', 4, 413)])
+def test_validation_failure_cleanup(monkeypatch, tmp_path, payload, limit, status):
+    original = main.tempfile.NamedTemporaryFile
+    def temporary(*args, **kwargs):
+        return original(*args, dir=tmp_path, **kwargs)
+    monkeypatch.setattr(main.tempfile, 'NamedTemporaryFile', temporary)
+    monkeypatch.setattr(main, 'MAX_FILE_SIZE', limit)
+    response = client.post('/api/analyze', files={'file': ('meeting.mp3', payload)})
+    assert response.status_code == status
+    assert list(tmp_path.iterdir()) == []

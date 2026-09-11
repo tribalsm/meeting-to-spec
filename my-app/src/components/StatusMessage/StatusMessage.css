@@ -1,0 +1,63 @@
+/* src/components/StatusMessage/StatusMessage.css */
+
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-6);
+}
+
+.status--loading {
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.status--error {
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error);
+  color: var(--color-text-primary);
+}
+
+.status--success {
+  background: var(--color-success-light);
+  border: 1px solid var(--color-success);
+  color: var(--color-text-primary);
+  align-items: center;
+}
+
+.status__icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.status__title {
+  font-weight: var(--font-semibold);
+  font-size: var(--text-md);
+  margin-bottom: var(--space-1);
+}
+
+.status__subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Спиннер в статус-блоке ── */
+.status__spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(0, 171, 250, 0.25);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

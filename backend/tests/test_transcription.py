@@ -52,3 +52,34 @@ def test_groq_client_requires_api_key(monkeypatch):
 
     with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
         transcription.get_groq_client()
+
+
+@pytest.mark.parametrize('start,end', [('0.2', '2.4'), (float('nan'), 1), (0, float('inf')), (-1, 2), (3, 2)])
+def test_segment_times_and_file_closure(monkeypatch, tmp_path, start, end):
+    path = tmp_path / 'meeting.wav'
+    path.write_bytes(b'audio')
+    opened = []
+    def create(**kwargs):
+        opened.append(kwargs['file'])
+        return SimpleNamespace(text=' A   B ', segments=[{'id': 99, 'start': start, 'end': end, 'text': ' A   B '}])
+    monkeypatch.setattr(transcription, 'get_groq_client', lambda: SimpleNamespace(audio=SimpleNamespace(transcriptions=SimpleNamespace(create=create))))
+    if isinstance(start, str):
+        result = transcription.transcribe_file(path)
+        assert result == {'text': 'A B', 'segments': [{'id': 0, 'start': .2, 'end': 2.4, 'text': 'A B'}]}
+    else:
+        with pytest.raises(ValueError):
+            transcription.transcribe_file(path)
+    assert opened[0].closed
+
+
+def test_groq_failure_closes_file(monkeypatch, tmp_path):
+    path = tmp_path / 'meeting.mp3'
+    path.write_bytes(b'audio')
+    opened = []
+    def create(**kwargs):
+        opened.append(kwargs['file'])
+        raise RuntimeError('provider error')
+    monkeypatch.setattr(transcription, 'get_groq_client', lambda: SimpleNamespace(audio=SimpleNamespace(transcriptions=SimpleNamespace(create=create))))
+    with pytest.raises(RuntimeError):
+        transcription.transcribe_file(path)
+    assert opened[0].closed

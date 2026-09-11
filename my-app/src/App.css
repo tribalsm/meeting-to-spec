@@ -1,0 +1,7 @@
+/* src/App.css */
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-5);
+}
