@@ -40,7 +40,9 @@
 
 ## Технологии
 
-- **Бэкенд:** Python, FastAPI, Groq GPT-OSS
+- **Бэкенд:** Python, FastAPI
+- **Распознавание речи:** Groq Whisper (`whisper-large-v3-turbo`)
+- **Анализ разговора:** Groq GPT-OSS (`gpt-oss-120b` + `gpt-oss-20b`)
 - **Фронтенд:** React, TypeScript, Vite
 
 ---
