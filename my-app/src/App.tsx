@@ -7,6 +7,7 @@ import AnalyzeButton from './components/AnalyzeButton/AnalyzeButton'
 import StatusMessage from './components/StatusMessage/StatusMessage'
 import ResultView from './components/ResultView/ResultView'
 import WelcomeBanner from './components/WelcomeBanner/WelcomeBanner'
+import MediaPlayer from './components/MediaPlayer'
 import { uploadFile, ApiError } from './api/analyzeApi'
 import type { AppStatus, AnalyzeResponse } from './types/contract'
 
@@ -17,7 +18,7 @@ function App() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null)
 
   async function handleAnalyze() {
-    if (!file) return
+    if (!file || status === 'loading') return
 
     setStatus('loading')
     setErrorText(null)
@@ -37,7 +38,7 @@ function App() {
     }
   }
 
-  function handleFileSelect(newFile: File) {
+  function handleFileSelect(newFile: File | null) {
     setFile(newFile)
     if (status === 'error' || status === 'success') {
       setStatus('idle')
@@ -57,6 +58,8 @@ function App() {
         onFileSelect={handleFileSelect}
         disabled={status === 'loading'}
       />
+
+      {file && <MediaPlayer file={file} />}
 
       <AnalyzeButton
         onClick={handleAnalyze}

@@ -38,7 +38,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
           <nav className="layout__nav">
-            <span className="layout__nav-badge">MVP · Хакатон 2025</span>
+            <span className="layout__nav-badge">MVP · Хакатон 2026</span>
           </nav>
         </div>
       </header>

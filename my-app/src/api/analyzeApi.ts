@@ -1,9 +1,8 @@
 // src/api/analyzeApi.ts
 import type { AnalyzeResponse } from '../types/contract'
-import { mockResponse } from '../mock/mockResponse'
 
-const USE_MOCK = true
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
 // ── Типизированные коды ошибок ──
 export type ApiErrorCode =
@@ -22,14 +21,13 @@ export class ApiError extends Error {
   }
 }
 
-function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+
 
 async function parseBackendError(response: Response): Promise<string> {
   try {
     const data = await response.json()
-    if (data.detail) return data.detail
+    if (typeof data.detail === 'string') return data.detail
+    if (Array.isArray(data.detail)) return data.detail.map((item: { msg?: string }) => item.msg ?? 'Некорректные данные').join('; ')
   } catch {
     // тело не JSON
   }
@@ -37,14 +35,7 @@ async function parseBackendError(response: Response): Promise<string> {
 }
 
 export async function uploadFile(file: File): Promise<AnalyzeResponse> {
-  if (USE_MOCK) {
-    await delay(2000)
 
-    // ── раскомментировать чтобы протестировать ошибку ──
-    // throw new ApiError('Сервер недоступен', 'NETWORK_ERROR')
-
-    return mockResponse
-  }
 
   // ── Реальный запрос ──
   let response: Response
@@ -60,7 +51,7 @@ export async function uploadFile(file: File): Promise<AnalyzeResponse> {
   } catch {
     // fetch бросает только если сеть упала совсем
     throw new ApiError(
-      'Не удалось подключиться к серверу. Проверьте интернет-соединение.',
+      'Не удалось подключиться к backend. Проверьте, что сервер запущен и доступен.',
       'NETWORK_ERROR'
     )
   }
@@ -84,6 +75,20 @@ export async function uploadFile(file: File): Promise<AnalyzeResponse> {
     throw new ApiError(detail, 'UNKNOWN')
   }
 
-  return response.json() as Promise<AnalyzeResponse>
+  try {
+    const data: AnalyzeResponse = await response.json()
+    const analysis = data.analysis
+    if (data.status !== 'success' || typeof data.filename !== 'string'
+      || typeof data.transcription?.text !== 'string'
+      || !Array.isArray(data.transcription?.segments)
+      || typeof analysis?.summary !== 'string'
+      || !['roles', 'requirements', 'userScenarios', 'constraints', 'conditions',
+        'openQuestions', 'agreements', 'contradictions'].every(key => Array.isArray(analysis[key as keyof typeof analysis]))) {
+      throw new Error('Invalid contract')
+    }
+    return data
+  } catch {
+    throw new ApiError('Сервер вернул некорректный результат анализа.', 'SERVER_ERROR')
+  }
 }
 

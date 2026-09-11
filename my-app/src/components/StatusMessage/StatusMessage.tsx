@@ -18,7 +18,7 @@ export default function StatusMessage({ status, errorText }: StatusMessageProps)
         <div>
           <p className="status__title">Обрабатываем запись...</p>
           <p className="status__subtitle">
-            Whisper расшифровывает аудио, Gemini анализирует текст.
+            Расшифровываем аудио и выделяем требования из разговора.
             <br />
             Это может занять до нескольких минут — не закрывайте страницу.
           </p>

@@ -31,12 +31,14 @@ export default function RequirementEditor({ onAdd }: RequirementEditorProps) {
     if (!validate()) return
 
     const newRequirement: Requirement = {
-      id: `req-${Date.now()}`,   // уникальный id на фронте
+      id: `manual-${crypto.randomUUID()}`,   // уникальный id на фронте
       title: draft.title.trim(),
       role: draft.role.trim(),
       description: draft.description.trim(),
       sourceSegmentIds: [],       // новое требование не привязано к сегментам
-      needsClarification: false,
+      needsClarification: true,
+      priority: 'medium',
+      confidence: 0.5,
     }
 
     onAdd(newRequirement)

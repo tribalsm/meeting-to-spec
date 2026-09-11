@@ -20,9 +20,9 @@ UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173"
-    ],
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +41,7 @@ async def analyze(file: UploadFile = File(...)):
     temp_file_path = None
 
     try:
-        if file.filename is None:
+        if not file.filename:
             raise HTTPException(
                 status_code=400,
                 detail="Файл не выбран"
@@ -74,6 +74,9 @@ async def analyze(file: UploadFile = File(...)):
 
                 temp_file.write(chunk)
 
+        if total_size == 0:
+            raise HTTPException(status_code=400, detail="Загружен пустой файл")
+
         # Этап 1: Speech-to-Text
         try:
             transcription = await run_in_threadpool(
@@ -82,12 +85,15 @@ async def analyze(file: UploadFile = File(...)):
             )
 
         except Exception:
-            logger.exception("Ошибка транскрипции")
+            logger.error("Ошибка транскрипции: внешний сервис не выполнил запрос")
 
             raise HTTPException(
                 status_code=502,
                 detail="Не удалось выполнить распознавание речи"
             )
+
+        if not transcription.get("text", "").strip():
+            raise HTTPException(status_code=422, detail="В записи не обнаружена речь")
 
         # Этап 2: анализ транскрипции
         try:
@@ -97,7 +103,7 @@ async def analyze(file: UploadFile = File(...)):
             )
 
         except Exception:
-            logger.exception("Ошибка анализа")
+            logger.error("Ошибка анализа: внешний сервис не выполнил запрос")
 
             raise HTTPException(
                 status_code=502,
@@ -111,6 +117,11 @@ async def analyze(file: UploadFile = File(...)):
             "analysis": analysis
         }
 
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Внутренняя ошибка обработки файла")
+        raise HTTPException(status_code=500, detail="Не удалось обработать файл") from None
     finally:
         try:
             await file.close()

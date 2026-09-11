@@ -24,6 +24,8 @@ export const mockResponse: AnalyzeResponse = {
         role: 'Сотрудник',
         description: 'Пользователь должен иметь возможность войти в систему через корпоративную учётную запись по логину и паролю.',
         sourceSegmentIds: [0, 1],
+        priority: 'medium',
+        confidence: 0.8,
         needsClarification: false,
       },
       {
@@ -32,6 +34,8 @@ export const mockResponse: AnalyzeResponse = {
         role: 'Сотрудник',
         description: 'Пользователь должен иметь доступ к личному кабинету с возможностью редактирования данных профиля.',
         sourceSegmentIds: [2],
+        priority: 'medium',
+        confidence: 0.8,
         needsClarification: false,
       },
       {
@@ -40,6 +44,8 @@ export const mockResponse: AnalyzeResponse = {
         role: 'Сотрудник',
         description: 'Система должна корректно работать на мобильных устройствах.',
         sourceSegmentIds: [3],
+        priority: 'medium',
+        confidence: 0.8,
         needsClarification: true,
       },
       {
@@ -48,13 +54,16 @@ export const mockResponse: AnalyzeResponse = {
         role: 'Сотрудник',
         description: 'Пользователь должен иметь возможность сбросить пароль через email.',
         sourceSegmentIds: [4],
+        priority: 'medium',
+        confidence: 0.8,
         needsClarification: false,
       },
     ],
+    contradictions: [],
     userScenarios: [
-      'Сотрудник входит в систему через корпоративный аккаунт',
-      'Сотрудник редактирует данные профиля в личном кабинете',
-      'Сотрудник восстанавливает пароль через email',
+      { title: 'Вход', description: 'Сотрудник входит в систему через корпоративный аккаунт', confidence: 0.8, sourceSegmentIds: [0, 1] },
+      { title: 'Профиль', description: 'Сотрудник редактирует данные профиля в личном кабинете', confidence: 0.8, sourceSegmentIds: [2] },
+      { title: 'Восстановление', description: 'Сотрудник восстанавливает пароль через email', confidence: 0.8, sourceSegmentIds: [4] },
     ],
     constraints: [
       'Система должна поддерживать мобильные устройства',

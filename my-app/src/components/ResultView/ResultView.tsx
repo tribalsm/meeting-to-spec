@@ -98,7 +98,7 @@ export default function ResultView({ result }: ResultViewProps) {
 
           <div className="result-view__requirements">
             {requirements.length === 0 ? (
-              <p className="result-view__empty">Все требования удалены</p>
+              <p className="result-view__empty">Требований пока нет. Их можно добавить вручную.</p>
             ) : (
               requirements.map(req => (
                 <RequirementCard
@@ -120,6 +120,14 @@ export default function ResultView({ result }: ResultViewProps) {
 
       {/* ── Нижние списки ── */}
       <div className="result-view__lists">
+        {analysis.contradictions.length > 0 && (
+          <section className="result-view__list-block">
+            <h3 className="result-view__list-title">Противоречия</h3>
+            <ul className="result-view__list">
+              {analysis.contradictions.map((item, i) => <li key={i}>{item}</li>)}
+            </ul>
+          </section>
+        )}
 
         {analysis.userScenarios.length > 0 && (
           <section className="result-view__list-block">
@@ -128,7 +136,17 @@ export default function ResultView({ result }: ResultViewProps) {
               Пользовательские сценарии
             </h3>
             <ul className="result-view__list">
-              {analysis.userScenarios.map((item, i) => <li key={i}>{item}</li>)}
+              {analysis.userScenarios.map((item, i) => (
+                <li key={i}>
+                  <strong>{item.title}</strong>
+                  <p>{item.description}</p>
+                  {item.sourceSegmentIds.length > 0 && (
+                    <button type="button" onClick={() => handleHighlight(`scenario-${i}`, item.sourceSegmentIds)}>
+                      Показать фрагменты
+                    </button>
+                  )}
+                </li>
+              ))}
             </ul>
           </section>
         )}

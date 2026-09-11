@@ -8,7 +8,8 @@ interface ExportData {
   summary: string
   roles: string[]
   requirements: Requirement[]
-  userScenarios: string[]
+  userScenarios: AnalyzeResponse['analysis']['userScenarios']
+  contradictions: string[]
   constraints: string[]
   conditions: string[]
   openQuestions: string[]
@@ -32,6 +33,7 @@ export function exportTz(result: AnalyzeResponse, requirements: Requirement[]): 
     conditions: result.analysis.conditions,
     openQuestions: result.analysis.openQuestions,
     agreements: result.analysis.agreements,
+    contradictions: result.analysis.contradictions,
     transcript: result.transcription,
   }
 

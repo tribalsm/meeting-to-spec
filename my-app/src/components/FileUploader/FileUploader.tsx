@@ -5,13 +5,13 @@ import './FileUploader.css'
 import { IconMusicNote } from '../Icons/Icons'
 
 // ── Константы — берём из контракта с бэком ──
-const ACCEPTED_FORMATS = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'video/mp4', 'video/webm']
+
 const ACCEPTED_EXTENSIONS = ['.mp3', '.mp4', '.wav', '.m4a', '.webm']
 const MAX_SIZE_MB = 25
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
 interface FileUploaderProps {
-  onFileSelect: (file: File) => void   // отдаём файл наверх в App.tsx
+  onFileSelect: (file: File | null) => void   // отдаём файл наверх в App.tsx
   disabled?: boolean                    // блокируем во время загрузки
 }
 
@@ -23,12 +23,13 @@ function formatSize(bytes: number): string {
 function validateFile(file: File): string | null {
   // Проверяем по расширению И по MIME-типу — оба варианта
   const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-  const mimeOk = ACCEPTED_FORMATS.includes(file.type)
+
   const extOk = ACCEPTED_EXTENSIONS.includes(ext)
 
-  if (!mimeOk && !extOk) {
+  if (!extOk) {
     return `Формат не поддерживается. Загрузите файл: ${ACCEPTED_EXTENSIONS.join(', ')}`
   }
+  if (file.size === 0) return 'Файл пустой. Выберите запись с аудио.'
   if (file.size > MAX_SIZE_BYTES) {
     return `Файл слишком большой: ${formatSize(file.size)}. Максимум — ${MAX_SIZE_MB} МБ`
   }
@@ -46,6 +47,7 @@ export default function FileUploader({ onFileSelect, disabled = false }: FileUpl
     if (error) {
       setValidationError(error)
       setSelectedFile(null)
+      onFileSelect(null)
       return
     }
     setValidationError(null)
@@ -108,6 +110,8 @@ export default function FileUploader({ onFileSelect, disabled = false }: FileUpl
         <input
           ref={inputRef}
           type="file"
+          disabled={disabled}
+          aria-label="Выбрать запись"
           accept={ACCEPTED_EXTENSIONS.join(',')}
           onChange={onInputChange}
           className="file-uploader__input"
@@ -128,6 +132,7 @@ export default function FileUploader({ onFileSelect, disabled = false }: FileUpl
                 onClick={(e) => {
                   e.stopPropagation() // не открываем диалог
                   setSelectedFile(null)
+      onFileSelect(null)
                   setValidationError(null)
                 }}
                 aria-label="Убрать файл"

@@ -21,6 +21,8 @@ export interface Transcription {
 // ------------------------------------------------------------------
 
 export interface Requirement {
+  priority: 'high' | 'medium' | 'low';
+  confidence: number;
   id: string;                      // генерируем на фронте при создании нового
   title: string;                   // название функции/фичи
   role: string;                    // роль пользователя
@@ -33,15 +35,23 @@ export interface Requirement {
 // Анализ (вложен в ответ бэка)
 // ------------------------------------------------------------------
 
+export interface UserScenario {
+  title: string;
+  description: string;
+  confidence: number;
+  sourceSegmentIds: number[];
+}
+
 export interface Analysis {
   summary: string;
   roles: string[];
   requirements: Requirement[];
-  userScenarios: string[];     // camelCase — запомни регистр!
+  userScenarios: UserScenario[];     // camelCase — запомни регистр!
   constraints: string[];
   conditions: string[];
   openQuestions: string[];     // camelCase!
   agreements: string[];
+  contradictions: string[];
 }
 
 // ------------------------------------------------------------------

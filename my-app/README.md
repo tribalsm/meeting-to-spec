@@ -1,75 +1,48 @@
-# React + TypeScript + Vite
+# meeting-to-spec frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite. Real backend is enabled by default. mockResponse is a test fixture only.
 
-Currently, two official plugins are available:
+## Local launch
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Backend, first PowerShell terminal:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+Set-Location 'C:\Users\tribal\Documents\hackathon\backend'
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Frontend, second terminal:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```powershell
+Set-Location 'C:\Users\tribal\Documents\hackathon\my-app'
+npm ci
+npm run dev
 ```
+
+Open http://localhost:5173. Vite forwards /api and /health to http://127.0.0.1:8000.
+No .env is needed locally. Port 5173 is fixed; an occupied port is reported explicitly.
+
+Select an mp3/mp4/wav/m4a/webm file (up to 25 MiB) and click Analyze. FormData uses field file.
+Keep the page open while analysis runs. Errors from the backend are displayed in the UI.
+Results include transcription, editable requirements, structured scenarios, constraints,
+conditions, questions, agreements and contradictions. Click requirements or scenario evidence
+buttons to highlight source segments. Export includes current edits and metadata.
+Edits are local to the page; download the JSON before refreshing.
+
+## Checks
+
+```powershell
+npm test
+npm run build
+npm run lint
+```
+
+Tests mock fetch and never call paid AI services. Coverage includes multipart requests,
+backend errors, structured scenarios, evidence highlighting, pending controls and file clearing.
+
+## Deployment
+
+Set VITE_API_URL to the public backend origin before npm run build, or configure a same-origin
+reverse proxy for /api. The Vite development proxy does not exist in the static production build.
+For separate origins, configure backend CORS_ORIGINS with the exact frontend origin.
+Never put Groq or Yandex credentials in VITE_ variables: browser configuration is public.
