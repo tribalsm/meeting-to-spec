@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -13,10 +14,16 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 ANALYSIS_MODEL = "openai/gpt-oss-120b"
+SECONDARY_ANALYSIS_MODEL = "openai/gpt-oss-20b"
 MAX_CHUNK_CHARS = 12_000
 MAX_ANALYSIS_CHUNKS = 8
 REQUEST_TIMEOUT = (10, 120)
 TRANSIENT_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
+SECONDARY_CATEGORY_KEYS = (
+    "constraints", "conditions", "openQuestions", "agreements", "contradictions"
+)
+
+logger = logging.getLogger(__name__)
 
 RESPONSE_SCHEMA = {
     "summary": "",
@@ -123,6 +130,10 @@ def _normalize_string_list(value) -> list:
         if text and text not in result:
             result.append(text)
     return result
+
+
+def _merge_unique_strings(first: list, second: list) -> list:
+    return _normalize_string_list(list(first) + list(second))
 
 
 def _normalize_source_ids(source_ids, valid_segment_ids: set) -> list:
@@ -336,6 +347,61 @@ def _request_analysis(segments: list[dict], valid_segment_ids: set, api_key: str
         ) from error
 
 
+def _analyze_secondary_categories(api_key: str, segments_block: str) -> dict:
+    """Extract supplementary categories without affecting the primary analysis result."""
+    prompt = f"""Проанализируй транскрипцию встречи и верни только JSON-объект строго такого вида:
+{{
+  "constraints": [],
+  "conditions": [],
+  "openQuestions": [],
+  "agreements": [],
+  "contradictions": []
+}}
+
+Извлекай только эти пять категорий. Ничего не выдумывай.
+Правила классификации:
+- «пока не решили» - кандидат в openQuestions;
+- «отдельно согласуем» - кандидат в openQuestions;
+- «для первой версии не делаем» - кандидат в agreements и/или constraints;
+- «только сотрудникам» - кандидат в constraints или conditions;
+- если участники явно называют ситуацию противоречием, добавь ее в contradictions;
+- одна и та же информация может попасть в несколько категорий, если смысл различается;
+- не возвращай пустой массив, если в транскрипции есть подходящие данные.
+
+Транскрипция:
+{segments_block}
+"""
+    body = {
+        "model": SECONDARY_ANALYSIS_MODEL,
+        "reasoning_effort": "low",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": "Верни только валидный JSON-объект без пояснений."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.1,
+        "max_completion_tokens": 1400,
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    response = requests.post(API_URL, headers=headers, json=body, timeout=(10, 45))
+    response.raise_for_status()
+    try:
+        data = response.json()
+        choice = data["choices"][0]
+        if not isinstance(choice, dict):
+            raise TypeError
+        status = choice.get("finish_reason")
+        if status is not None and status != "stop":
+            raise ValueError("generation_not_final")
+        raw_text = choice["message"]["content"]
+    except (ValueError, KeyError, IndexError, TypeError) as error:
+        raise AnalysisResponseError(
+            "GROQ_SECONDARY_RESPONSE_INVALID", "Второй проход вернул некорректный ответ."
+        ) from error
+    result = _extract_json(raw_text)
+    return {key: _normalize_string_list(result.get(key)) for key in SECONDARY_CATEGORY_KEYS}
+
+
 def _merge_results(results: list[dict]) -> dict:
     merged = _empty_response()
     summaries = []
@@ -394,4 +460,15 @@ def analyze_transcription(transcription: dict) -> dict:
         )
     valid_ids = {segment["id"] for segment in segments}
     results = [_request_analysis(chunk, valid_ids, api_key) for chunk in chunks]
-    return _merge_results(results)
+    primary_result = _merge_results(results)
+
+    secondary_segments = segments if segments else [item for chunk in chunks for item in chunk]
+    try:
+        secondary_result = _analyze_secondary_categories(api_key, _segments_block(secondary_segments))
+    except Exception as error:
+        logger.warning("Secondary LLM pass failed: %s", type(error).__name__)
+        return primary_result
+
+    for key in SECONDARY_CATEGORY_KEYS:
+        primary_result[key] = _merge_unique_strings(primary_result[key], secondary_result[key])
+    return primary_result

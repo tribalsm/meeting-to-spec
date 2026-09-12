@@ -83,11 +83,17 @@ def test_success_normalization(api):
     assert result['requirements'][0]['sourceSegmentIds'] == [2]
     assert result['requirements'][0]['needsClarification'] is False
     json.dumps(result, allow_nan=False)
-    assert post.call_args.kwargs['timeout'] == (10, 120)
-    request = post.call_args.kwargs
+    assert post.call_count == 2
+    request = post.call_args_list[0].kwargs
+    assert request['timeout'] == (10, 120)
     assert request['json']['model'] == 'openai/gpt-oss-120b'
     assert request['headers']['Authorization'] == 'Bearer unit-test-placeholder'
     assert '[id=2' in request['json']['messages'][1]['content']
+    secondary_request = post.call_args_list[1].kwargs
+    assert secondary_request['timeout'] == (10, 45)
+    assert secondary_request['json']['model'] == 'openai/gpt-oss-20b'
+    assert secondary_request['json']['max_completion_tokens'] == 1400
+    assert '[id=2' in secondary_request['json']['messages'][1]['content']
 
 
 def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
@@ -108,11 +114,11 @@ def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
             }],
         })}}]}
         responses.append(response)
-    api[1].side_effect = responses
+    api[1].side_effect = [*responses, responses[-1]]
 
     result = a.analyze_transcription(transcript)
 
-    assert api[1].call_count == 2
+    assert api[1].call_count == 3
     assert result['summary'] == 'Часть 1 Часть 2'
     assert [item['id'] for item in result['requirements']] == ['req_1', 'req_2']
     assert [item['sourceSegmentIds'] for item in result['requirements']] == [[0], [1]]
@@ -120,12 +126,43 @@ def test_long_transcript_is_split_and_results_are_merged(api, monkeypatch):
 
 
 def test_transient_analysis_error_is_retried_once(api):
-    api[1].side_effect = [requests.Timeout(), api[0]]
+    api[1].side_effect = [requests.Timeout(), api[0], api[0]]
 
     result = a.analyze_transcription(TRANSCRIPT)
 
     assert result['summary'] == 'Регистрация'
-    assert api[1].call_count == 2
+    assert api[1].call_count == 3
+
+
+def test_secondary_categories_are_merged(api):
+    secondary_response = Mock()
+    secondary_response.json.return_value = {'choices': [{'finish_reason': 'stop', 'message': {
+        'content': json.dumps({
+            'constraints': ['Только сотрудникам'],
+            'conditions': ['После авторизации'],
+            'openQuestions': ['Отдельно согласуем формат'],
+            'agreements': ['Для первой версии не делаем экспорт'],
+            'contradictions': ['Участники назвали сроки противоречием'],
+        })
+    }}]}
+    api[1].side_effect = [api[0], secondary_response]
+
+    result = a.analyze_transcription(TRANSCRIPT)
+
+    assert result['constraints'] == ['Только сотрудникам']
+    assert result['conditions'] == ['После авторизации']
+    assert result['openQuestions'] == ['Отдельно согласуем формат']
+    assert result['agreements'] == ['Для первой версии не делаем экспорт']
+    assert result['contradictions'] == ['Участники назвали сроки противоречием']
+
+
+def test_secondary_failure_keeps_primary_result(api, caplog):
+    api[1].side_effect = [api[0], requests.Timeout()]
+
+    result = a.analyze_transcription(TRANSCRIPT)
+
+    assert result['summary'] == 'Регистрация'
+    assert 'Secondary LLM pass failed: Timeout' in caplog.text
 
 
 def test_excessive_number_of_chunks_is_rejected_before_api_call(api, monkeypatch):
