@@ -1,6 +1,16 @@
 # Meeting to Spec
 
-Pet-проект, созданный после хакатона 2026. Сервис превращает запись встречи в черновик технического задания: распознаёт речь, выделяет требования и помогает проверить результат перед экспортом в Markdown.
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/tests-pytest%20%2B%20Vitest-6E9F18)](#проверки)
+
+Командный MVP, созданный на хакатоне 2026 и затем доработанный и упакованный как pet-проект. Сервис превращает запись встречи в черновик технического задания: распознаёт речь, выделяет требования и помогает проверить результат перед экспортом в Markdown.
+
+![Связь требований с транскрипцией](docs/screenshots/03-traceability.png)
+
+*Требования сохраняют связь с исходными фрагментами разговора, поэтому результат AI можно проверить по транскрипции.*
 
 ## Проблема и решение
 
@@ -16,6 +26,32 @@ Meeting to Spec принимает аудио- или видеозапись, с
 4. Сервис возвращает транскрипцию с таймкодами и сформированное ТЗ.
 5. Пользователь ищет фрагменты транскрипции, проверяет и редактирует требования.
 6. Готовое ТЗ скачивается в формате Markdown.
+
+## Демонстрация
+
+### 1. Загрузка записи
+
+![Загрузка записи и плеер](docs/screenshots/01-upload.png)
+
+*Пользователь загружает аудио или видео и может проверить запись перед запуском анализа.*
+
+### 2. Формирование ТЗ
+
+![Формирование ТЗ](docs/screenshots/02-result-overview.png)
+
+*После обработки сервис формирует черновик ТЗ, summary и позволяет скачать результат в Markdown.*
+
+### 3. Проверка источника требований
+
+![Трассируемость требования до транскрипции](docs/screenshots/03-traceability.png)
+
+*Каждое требование связано с исходными сегментами транскрипции и может быть проверено по записи.*
+
+### 4. Детальный анализ встречи
+
+![Детальный анализ встречи](docs/screenshots/04-detailed-analysis.png)
+
+*Сервис выделяет требования, пользовательские сценарии, роли, ограничения, открытые вопросы, договорённости и противоречия.*
 
 ## Возможности
 
@@ -40,28 +76,30 @@ Meeting to Spec принимает аудио- или видеозапись, с
 | Тестирование | pytest, FastAPI TestClient, Vitest, Testing Library |
 | Публикация frontend | GitHub Pages и GitHub Actions |
 
+## Мой вклад
+
+- разработка FastAPI backend и HTTP API;
+- интеграция frontend и backend;
+- интеграция AI pipeline на стороне backend;
+- обработка ошибок и fallback второго LLM-прохода;
+- deployment на VPS;
+- integration testing и debugging перед финалом.
+
 ## Архитектура
 
-```text
-React + Vite
-    |
-    | POST /api/analyze, multipart/form-data: file
-    v
-FastAPI
-    |
-    +-> проверка формата и размера, временный файл
-    +-> Groq Whisper Large V3 Turbo
-    |       |
-    |       v
-    |   транскрипция + сегменты с таймкодами
-    +-> GPT-OSS 120B: основная структура ТЗ
-    +-> GPT-OSS 20B: дополнительные аналитические категории
-    |
-    v
-нормализация и merge без дублей
-    |
-    v
-единый JSON-ответ для frontend
+```mermaid
+flowchart LR
+    UI[React + Vite] -->|POST /api/analyze| API[FastAPI]
+    API --> Validate[Проверка файла]
+    Validate --> Whisper[Whisper Large V3 Turbo]
+    Whisper --> Transcript[Транскрипция и таймкоды]
+    Transcript --> MainLLM[GPT-OSS 120B\nОсновная структура ТЗ]
+    MainLLM -. следующий этап .-> SecondaryLLM[GPT-OSS 20B\nДополнительные категории]
+    Transcript -. та же транскрипция .-> SecondaryLLM
+    MainLLM --> Merge[Нормализация и merge]
+    SecondaryLLM --> Merge
+    Merge --> Result[Единый JSON и Markdown]
+    Result --> UI
 ```
 
 HTTP API остаётся компактным:
@@ -149,7 +187,7 @@ npm run build
 
 ## Демонстрационные материалы
 
-В [examples](examples) лежат две короткие синтезированные записи и текстовые сценарии для воспроизводимой демонстрации. В корне репозитория также есть демонстрационные аудио- и видеозаписи. Перед публикацией проекта стоит проверить права на любые новые медиафайлы.
+В [examples](examples) лежат две короткие синтезированные записи и текстовые сценарии для воспроизводимой демонстрации. В корне репозитория также есть демонстрационные аудио- и видеозаписи. Все демонстрационные записи синтезированы и не содержат конфиденциальных рабочих встреч.
 
 ## Ограничения MVP
 
